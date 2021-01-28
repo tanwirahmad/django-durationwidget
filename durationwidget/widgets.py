@@ -2,7 +2,7 @@ from datetime import timedelta
 from gettext import ngettext
 
 from django.forms import MultiWidget
-from django.forms.widgets import Input
+from django.forms.widgets import NumberInput
 from django.utils.dateparse import parse_duration
 
 
@@ -30,27 +30,22 @@ def get_human_readable_duration(value):
         format_list.append("{0} {1}".format(hours, ngettext("Hour", "Hours", hours)))
     if minutes > 0:
         format_list.append("{0} {1}".format(minutes, ngettext("Minute", "Minutes", minutes)))
-    if seconds > 0:
+    if seconds > 0 or not format_list:
         format_list.append("{0} {1}".format(seconds, ngettext("Second", "Seconds", seconds)))
     return " ".join(format_list)
 
 
-class LabeledNumberInput(Input):
-    input_type = "number"
+class LabeledNumberInput(NumberInput):
     template_name = 'widgets/labeled_number_input.html'
 
     def __init__(self, label=None, attrs=None, type=None):
         self.widget_label = label
         self.type = type
-        if attrs is not None:
-            attrs = attrs.copy()
-            self.input_type = attrs.pop('type', self.input_type)
-        super(Input, self).__init__(attrs)
+        super(LabeledNumberInput, self).__init__(attrs)
 
     # ---------------------------------------------------------------------------------------------------------------------
     def get_context(self, name, value, attrs):
-        context = super(Input, self).get_context(name, value, attrs)
-        context['widget']['type'] = self.input_type
+        context = super(NumberInput, self).get_context(name, value, attrs)
         context['widget']['widget_label'] = self.widget_label
         return context
 
@@ -64,8 +59,8 @@ class TimeDurationWidget(MultiWidget):
 
     def get_context(self, name, value, attrs):
         context = super(TimeDurationWidget, self).get_context(name, value, attrs)
-        duration_readable = None
-        if not isinstance(value, list):
+        duration_readable = ""
+        if not isinstance(value, list) and value:
             duration_readable = get_human_readable_duration(value)
         context['duration_readable'] = duration_readable
         return context
@@ -112,8 +107,8 @@ class TimeDurationWidget(MultiWidget):
         minutes = 0 if not self.show_minutes else data_list.get("minutes")
         seconds = 0 if not self.show_seconds else data_list.get("seconds")
 
-        if self.is_required and days == 0 and hours == 0 and minutes == 0 and seconds == 0:
-            return ''
+        if days == 0 and hours == 0 and minutes == 0 and seconds == 0:
+            return None
 
         try:
             D = timedelta(
@@ -123,6 +118,6 @@ class TimeDurationWidget(MultiWidget):
                 seconds=int(seconds)
             )
         except ValueError:
-            return ''
+            return None
         else:
             return str(D)
